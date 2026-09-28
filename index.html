@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neon Bastion — Wave Defense</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="stat">
+        <span class="label">GOLD</span><span id="gold">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">BASE</span>
+        <div class="hpbar"><div id="hpfill"></div></div>
+        <span id="hp">100</span>
+      </div>
+      <div class="stat">
+        <span class="label">WAVE</span><span id="wave">0</span>
+      </div>
+    </div>
+
+    <!-- Tower build bar -->
+    <div id="buildbar">
+      <button class="tbtn" data-type="turret">
+        <span class="ti" style="background: #4fd0ff"></span>Turret<span
+          class="c"
+          >50</span
+        >
+      </button>
+      <button class="tbtn" data-type="cannon">
+        <span class="ti" style="background: #ff9d3c"></span>Cannon<span
+          class="c"
+          >95</span
+        >
+      </button>
+      <button class="tbtn" data-type="tesla">
+        <span class="ti" style="background: #c48fff"></span>Tesla<span class="c"
+          >85</span
+        >
+      </button>
+      <button class="tbtn" data-type="frost">
+        <span class="ti" style="background: #7ef2d0"></span>Frost<span class="c"
+          >75</span
+        >
+      </button>
+    </div>
+
+    <!-- Selected tower panel -->
+    <div id="selpanel" class="hidden">
+      <div id="selname">Tower</div>
+      <div id="selstats"></div>
+      <div class="selbtns">
+        <button id="upgBtn">Upgrade</button>
+        <button id="sellBtn">Sell</button>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+      <button id="startWave">Start Wave 1</button>
+      <button id="speedBtn">1x</button>
+    </div>
+
+    <!-- Overlays -->
+    <div id="overlay" class="overlay">
+      <div class="ovcard">
+        <h1>NEON BASTION</h1>
+        <p>Build towers. Hold the line. Survive the waves.</p>
+        <p class="hint">
+          Pick a tower on the left, click the field to place it.<br />Right-click
+          to cancel · Keys 1-4 pick towers · Space starts wave.
+        </p>
+        <button id="playBtn">Start Game</button>
+      </div>
+    </div>
+
+    <script src="src/particles.js"></script>
+    <script src="src/entities.js"></script>
+    <script src="src/waves.js"></script>
+    <script src="src/game.js"></script>
+  </body>
+</html>

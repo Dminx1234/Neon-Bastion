@@ -1,0 +1,79 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #0a0e18;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #dfe9ff;
+}
+#game { display: block; position: fixed; inset: 0; }
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed; top: 14px; left: 16px; display: flex; gap: 18px; align-items: center;
+  padding: 10px 16px; border-radius: 12px;
+  background: rgba(12, 20, 36, 0.7); backdrop-filter: blur(6px);
+  border: 1px solid rgba(79, 208, 255, 0.25); box-shadow: 0 0 24px rgba(0, 0, 0, .5);
+}
+.stat { display: flex; flex-direction: column; font-size: 12px; letter-spacing: .08em; color: #7fb0e6; }
+.stat .label { font-weight: 700; opacity: .8; margin-bottom: 2px; }
+#gold, #wave { font-size: 20px; font-weight: 800; color: #fff; text-shadow: 0 0 12px rgba(79, 208, 255, .6); }
+.stat:last-child .label { margin-right: 8px; }
+.hpbar { width: 140px; height: 12px; background: rgba(255, 255, 255, .1); border-radius: 6px; overflow: hidden; }
+#hpfill { height: 100%; width: 100%; background: #4fd0ff; transition: width .2s, background .2s; box-shadow: 0 0 12px inset rgba(255, 255, 255, .4); }
+#hp { font-size: 13px; margin-left: 6px; color: #fff; }
+
+/* ---------- Build bar ---------- */
+#buildbar {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px;
+  padding: 10px 12px; border-radius: 14px; background: rgba(12, 20, 36, 0.75); backdrop-filter: blur(6px);
+  border: 1px solid rgba(79, 208, 255, 0.25);
+}
+.tbtn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 12px; border-radius: 10px;
+  background: rgba(255, 255, 255, .04); color: #cfe3ff; border: 1px solid rgba(120, 170, 255, .25); cursor: pointer;
+  font-size: 12px; font-weight: 700; transition: .15s; min-width: 74px;
+}
+.tbtn:hover { background: rgba(79, 208, 255, .14); }
+.tbtn.active { border-color: #4fd0ff; box-shadow: 0 0 16px rgba(79, 208, 255, .5); background: rgba(79, 208, 255, .2); }
+.tbtn .ti { width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
+.tbtn .c { font-size: 11px; opacity: .85; color: #ffd23f; }
+
+/* ---------- Selected tower panel ---------- */
+#selpanel {
+  position: fixed; top: 70px; right: 16px; width: 190px; padding: 14px; border-radius: 12px;
+  background: rgba(12, 20, 36, .85); border: 1px solid rgba(79, 208, 255, .3); font-size: 13px;
+}
+#selpanel.hidden { display: none; }
+#selname { font-weight: 800; font-size: 15px; margin-bottom: 8px; color: #fff; }
+#selstats { opacity: .85; line-height: 1.6; margin-bottom: 10px; }
+.selbtns { display: flex; gap: 8px; }
+.selbtns button { flex: 1; }
+
+/* ---------- Controls ---------- */
+#controls { position: fixed; top: 14px; right: 16px; display: flex; gap: 10px; }
+#controls button, #upgBtn, #sellBtn {
+  padding: 10px 16px; border-radius: 10px; font-weight: 800; cursor: pointer;
+  background: rgba(12, 20, 36, .8); color: #dfe9ff; border: 1px solid rgba(79, 208, 255, .4); letter-spacing: .05em;
+}
+#startWave { background: rgba(79, 208, 255, .18); box-shadow: 0 0 20px rgba(79, 208, 255, .3); }
+#startWave:disabled { opacity: .5; cursor: default; box-shadow: none; }
+#speedBtn { min-width: 52px; }
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 40%, rgba(20, 32, 60, .85), rgba(6, 9, 16, .96)); z-index: 10;
+}
+.overlay.hidden { display: none; }
+.ovcard {
+  text-align: center; padding: 40px 56px; border-radius: 18px;
+  background: rgba(12, 20, 36, .7); border: 1px solid rgba(79, 208, 255, .3); box-shadow: 0 0 60px rgba(79, 208, 255, .2);
+}
+.ovcard h1 { font-size: 44px; letter-spacing: .14em; margin: 0 0 10px; color: #fff; text-shadow: 0 0 24px rgba(79, 208, 255, .7); }
+.ovcard p { margin: 8px 0; color: #b9cfef; }
+.ovcard .hint { font-size: 13px; opacity: .8; line-height: 1.6; }
+#playBtn {
+  margin-top: 18px; padding: 14px 34px; border-radius: 12px; font-size: 18px; font-weight: 800; cursor: pointer;
+  background: rgba(79, 208, 255, .2); color: #fff; border: 1px solid rgba(79, 208, 255, .6); box-shadow: 0 0 24px rgba(79, 208, 255, .4);
+}
+#playBtn:hover { background: rgba(79, 208, 255, .34); }
