@@ -2,6 +2,9 @@
 
 const cell = 46;
 
+/* distinct neon color per spawn lane */
+const PATH_COLORS = ["#4fd0ff", "#ff9d3c", "#c48fff", "#7ef2d0"];
+
 const Game = {
   canvas: null,
   ctx: null,
@@ -14,7 +17,7 @@ const Game = {
   towers: [],
   projectiles: [],
   paths: [],
-  base: { x: 110, y: 0 },
+  base: { x: 0, y: 0 }, // centered by resize(); four lanes approach from each side
   baseRadius: 44,
   selectedTower: null,
   placementType: null,
@@ -40,37 +43,98 @@ const Game = {
     this.H = window.innerHeight;
     this.canvas.width = this.W;
     this.canvas.height = this.H;
-    const oldX = this.base.x;
+    // Bastion sits in the center of the field now.
+    this.base.x = this.W / 2;
     this.base.y = this.H / 2;
     this.initPaths();
-    this.base.x = Math.max(80, Math.min(this.W - 140, oldX));
   },
 
   initPaths() {
-    const B = this.base,
-      W = this.W,
-      H = this.H;
+    const cx = this.W / 2,
+      cy = this.H / 2;
+    const r = this.baseRadius;
+    const e = Math.max(54, Math.min(this.W, this.H) * 0.06); // spawn inset from edge
+
+    // Each lane ends at the midpoint of a DIFFERENT face of the bastion (top -> top
+    // face, right -> right face, ...), so every side of the cube has its own lane.
+    // Every lane is confined to a corridor of half-width `hw` around its axis:
+    // North/South live in the vertical strip x ∈ [cx-hw, cx+hw] (above/below base);
+    // West/East in the horizontal strip y ∈ [cy-hw, cy+hw] (left/right). With hw <= r
+    // those two strips only intersect INSIDE the base box, which the sprite covers —
+    // so the lanes never overlap. Monotone paths keep each lane inside its own strip.
+    const hw = r;
+
+    // Equal length is still guaranteed by construction: a monotone orthogonal path
+    // has length == its Manhattan distance to the endpoint. We pick one shared L and
+    // offset each entry so that distance equals L, then zig-zag freely inside the
+    // corridor without changing the total. (On extreme aspect ratios the natural
+    // length gap exceeds `hw`, so lengths degrade gracefully rather than overlap.)
+    const northMin = cy - r - e; // top entry straight down to the top face
+    const southMin = this.H - e - (cy + r); // bottom entry straight up
+    const westMin = cx - r - e; // left entry straight right to the left face
+    const eastMin = this.W - e - (cx + r); // right entry straight left
+    const lo = Math.max(northMin, southMin, westMin, eastMin);
+    const hi = Math.min(northMin, southMin, westMin, eastMin) + hw;
+    let L = (lo + hi) / 2; // target lane length (same for all four lanes)
+    if (!(L >= lo && L <= hi)) L = Math.min(hi, Math.max(lo, L));
+
+    const slideTop = clamp(L - northMin, 0, hw);
+    const slideBottom = clamp(L - southMin, 0, hw);
+    const slideLeft = clamp(L - westMin, 0, hw);
+    const slideRight = clamp(L - eastMin, 0, hw);
+
+    const randSign = () => (Math.random() < 0.5 ? -1 : 1);
+    const randTurns = () => 1 + Math.floor(Math.random() * 2); // 1 or 2 bends
+
+    const entry = (side) => {
+      switch (side) {
+        case "top":
+          return {
+            x: clamp(cx + randSign() * slideTop, cx - hw, cx + hw),
+            y: e,
+          };
+        case "bottom":
+          return {
+            x: clamp(cx + randSign() * slideBottom, cx - hw, cx + hw),
+            y: this.H - e,
+          };
+        case "left":
+          return {
+            x: e,
+            y: clamp(cy + randSign() * slideLeft, cy - hw, cy + hw),
+          };
+        case "right":
+          return {
+            x: this.W - e,
+            y: clamp(cy + randSign() * slideRight, cy - hw, cy + hw),
+          };
+      }
+    };
+
+    const face = {
+      top: { x: cx, y: cy - r },
+      bottom: { x: cx, y: cy + r },
+      left: { x: cx - r, y: cy },
+      right: { x: cx + r, y: cy },
+    };
+
     this.paths = [
-      [
-        { x: W * 0.97, y: H * 0.12 },
-        { x: W * 0.55, y: H * 0.28 },
-        { x: B.x + 40, y: B.y - 30 },
-      ],
-      [
-        { x: W * 0.97, y: H * 0.5 },
-        { x: W * 0.62, y: H * 0.62 },
-        { x: B.x + 40, y: B.y + 10 },
-      ],
-      [
-        { x: W * 0.97, y: H * 0.88 },
-        { x: W * 0.55, y: H * 0.74 },
-        { x: B.x + 40, y: B.y + 40 },
-      ],
-      [
-        { x: W * 0.3, y: H * 0.04 },
-        { x: W * 0.3, y: H * 0.45 },
-        { x: B.x, y: B.y - 40 },
-      ],
+      {
+        points: buildLane(entry("top"), face.top, randTurns()),
+        color: PATH_COLORS[0],
+      },
+      {
+        points: buildLane(entry("right"), face.right, randTurns()),
+        color: PATH_COLORS[1],
+      },
+      {
+        points: buildLane(entry("bottom"), face.bottom, randTurns()),
+        color: PATH_COLORS[2],
+      },
+      {
+        points: buildLane(entry("left"), face.left, randTurns()),
+        color: PATH_COLORS[3],
+      },
     ];
   },
 
@@ -119,8 +183,8 @@ const Game = {
     for (const t of this.towers)
       if (Math.hypot(t.x - x, t.y - y) < cell * 0.85) return false;
     for (const p of this.paths)
-      for (let i = 0; i < p.length - 1; i++)
-        if (distToSeg(x, y, p[i], p[i + 1]) < 24) return false;
+      for (let i = 0; i < p.points.length - 1; i++)
+        if (distToSeg(x, y, p.points[i], p.points[i + 1]) < 24) return false;
     return true;
   },
 
@@ -133,6 +197,7 @@ const Game = {
     } // refund if invalid
     this.towers.push(new Tower(type, x, y));
     Particles.explosion(x, y, TOWER_TYPES[type].color, 10, 3);
+    Sound.place();
     return true;
   },
 
@@ -147,10 +212,11 @@ const Game = {
 
   upgradeTower() {
     const t = this.selectedTower;
-    if (!t || t.level >= 4) return;
+    if (!t) return;
     const c = upgradeCost(t.type, t.level);
     if (!this.spend(c)) return;
     t.upgrade();
+    Sound.upgrade();
     Particles.text(t.x, t.y - 24, "UPGRADE!", t.color, 15);
     this.updateSelPanel();
   },
@@ -162,6 +228,7 @@ const Game = {
     const i = this.towers.indexOf(t);
     if (i >= 0) this.towers.splice(i, 1);
     Particles.text(t.x, t.y - 24, "+" + t.sellValue(), "#fff", 14);
+    Sound.sell();
     this.clearSelection();
   },
 
@@ -175,20 +242,22 @@ const Game = {
     p.classList.remove("hidden");
     document.getElementById("selname").textContent =
       TOWER_TYPES[t.type].name + " Lv " + t.level;
-    const s = t.stats();
-    document.getElementById("selstats").innerHTML =
-      `DMG ${s.damage.toFixed(1)} · RNG ${Math.round(s.range)}<br>` +
-      (s.splash ? `SPLASH ${s.splash}<br>` : "") +
-      (s.chain ? `CHAIN ${s.chain}<br>` : "") +
-      (s.slow ? `SLOW ${(s.slow * 100).toFixed(0)}%<br>` : "");
-    const upBtn = document.getElementById("upgBtn");
-    if (t.level >= 4) {
-      upBtn.disabled = true;
-      upBtn.textContent = "Max Level";
+    // Income towers show their payout instead of combat stats.
+    if (t.type === "bank") {
+      document.getElementById("selstats").innerHTML =
+        `INCOME ${bankIncome(t.level)}/wave<br>Sell value ${t.sellValue()}g`;
     } else {
-      upBtn.disabled = false;
-      upBtn.textContent = "Upgrade " + upgradeCost(t.type, t.level) + "g";
+      const s = t.stats();
+      document.getElementById("selstats").innerHTML =
+        `DMG ${s.damage.toFixed(1)} · RNG ${Math.round(s.range)}<br>` +
+        (s.splash ? `SPLASH ${s.splash}<br>` : "") +
+        (s.chain ? `CHAIN ${s.chain}<br>` : "") +
+        (s.slow ? `SLOW ${(s.slow * 100).toFixed(0)}%<br>` : "");
     }
+    const upBtn = document.getElementById("upgBtn");
+    // No level cap: always offer the next upgrade at its (rising) cost.
+    upBtn.disabled = false;
+    upBtn.textContent = "Upgrade " + upgradeCost(t.type, t.level) + "g";
     document.getElementById("sellBtn").textContent =
       "Sell +" + t.sellValue() + "g";
   },
@@ -198,6 +267,7 @@ const Game = {
     this.baseHealth -= e.damageToBase;
     Particles.explosion(this.base.x, this.base.y, "#ff5470", 18, 5);
     Particles.addShake(6);
+    Sound.baseHit();
     Particles.text(
       this.base.x,
       this.base.y - 50,
@@ -212,6 +282,7 @@ const Game = {
   killEnemy(e) {
     this.addGold(e.reward);
     Particles.explosion(e.x, e.y, e.color, 14, 4);
+    Sound.kill();
     Particles.text(e.x, e.y, "+" + e.reward, "#ffd23f", 13);
     Particles.addShake(1);
   },
@@ -239,8 +310,10 @@ const Game = {
         return;
       }
       if (this.placementType) {
-        if (!this.placeTower(cx, cy, this.placementType))
+        if (!this.placeTower(cx, cy, this.placementType)) {
           Particles.text(ev.clientX, ev.clientY, "Nope", "#ff5470", 13);
+          Sound.fail();
+        }
         return;
       }
       this.clearSelection();
@@ -252,11 +325,19 @@ const Game = {
     });
 
     window.addEventListener("keydown", (ev) => {
-      const map = { 1: "turret", 2: "cannon", 3: "tesla", 4: "frost" };
+      const map = {
+        1: "turret",
+        2: "cannon",
+        3: "tesla",
+        4: "frost",
+        5: "bank",
+      };
       if (map[ev.key]) this.pickPlacement(map[ev.key]);
       else if (ev.code === "Space") {
         ev.preventDefault();
         this.startWaveUI();
+      } else if (ev.key.toLowerCase() === "m") {
+        Sound.toggle();
       }
     });
 
@@ -278,6 +359,24 @@ const Game = {
     });
 
     document
+      .getElementById("muteBtn")
+      .addEventListener("click", () => Sound.toggle());
+
+    const autoBtn = document.getElementById("autoBtn");
+    autoBtn.addEventListener("click", () => {
+      Waves.autoWave = !Waves.autoWave;
+      autoBtn.classList.toggle("on", Waves.autoWave);
+      autoBtn.textContent = "Auto: " + (Waves.autoWave ? "On" : "Off");
+      // Keep the start button's label consistent with the new mode.
+      const sw = document.getElementById("startWave");
+      if (sw && !Waves.active) {
+        if (Waves.autoWave && Waves.countdown > 0)
+          sw.textContent = `Next wave in ${Math.ceil(Waves.countdown)}…`;
+        else sw.textContent = "Start Wave " + (Waves.current + 1);
+      }
+    });
+
+    document
       .getElementById("startWave")
       .addEventListener("click", () => this.startWaveUI());
 
@@ -289,6 +388,7 @@ const Game = {
 
   pickPlacement(type) {
     this.placementType = this.placementType === type ? null : type;
+    if (this.placementType) Sound.pick();
     this.clearSelection();
     document
       .querySelectorAll(".tbtn")
@@ -309,6 +409,7 @@ const Game = {
   startGame(ov) {
     ov.classList.add("hidden");
     this.running = true;
+    Sound.startMusic();
     this.gameOver = false;
     this.gold = 220;
     this.baseHealth = this.maxBaseHealth;
@@ -316,6 +417,7 @@ const Game = {
     this.towers = [];
     this.projectiles = [];
     Particles.reset();
+    this.initPaths(); // fresh random equal-length lanes each game
     Waves.current = 0;
     Waves.betweenWaves = true;
     Waves.active = false;
@@ -328,6 +430,8 @@ const Game = {
   endGame() {
     this.gameOver = true;
     this.running = false;
+    Sound.stopMusic();
+    Sound.gameOver();
     const ov = document.getElementById("overlay");
     ov.querySelector("h1").textContent = "BASTION FALLEN";
     ov.querySelectorAll("p")[0].textContent =
@@ -389,28 +493,45 @@ const Game = {
     ctx.save();
     ctx.translate(sx, sy);
 
-    // paths
+    // paths — one colored glow + core line per lane, plus a spawn marker at each lane entry
     for (const p of this.paths) {
-      ctx.strokeStyle = "rgba(79,208,255,0.18)";
-      ctx.lineWidth = 26;
+      const col = p.color;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
-      ctx.shadowColor = "#4fd0ff";
+      ctx.lineWidth = 26;
+      ctx.shadowColor = col;
       ctx.shadowBlur = 18;
+      ctx.strokeStyle = Particles.withAlpha(col, 0.22);
       ctx.beginPath();
-      ctx.moveTo(p[0].x, p[0].y);
-      for (let i = 1; i < p.length; i++) ctx.lineTo(p[i].x, p[i].y);
+      ctx.moveTo(p.points[0].x, p.points[0].y);
+      for (let i = 1; i < p.points.length; i++)
+        ctx.lineTo(p.points[i].x, p.points[i].y);
       ctx.stroke();
     }
     ctx.shadowBlur = 0;
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "rgba(120,190,255,0.5)";
     for (const p of this.paths) {
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = Particles.withAlpha(p.color, 0.95);
       ctx.beginPath();
-      ctx.moveTo(p[0].x, p[0].y);
-      for (let i = 1; i < p.length; i++) ctx.lineTo(p[i].x, p[i].y);
+      ctx.moveTo(p.points[0].x, p.points[0].y);
+      for (let i = 1; i < p.points.length; i++)
+        ctx.lineTo(p.points[i].x, p.points[i].y);
       ctx.stroke();
     }
+    // spawn entry markers
+    for (const p of this.paths) {
+      const s = p.points[0];
+      ctx.save();
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
 
     this.drawBase(ctx);
     if (this.placementType) this.drawGhost(ctx);
@@ -479,6 +600,55 @@ function distToSeg(px, py, a, b) {
   let t = ((px - a.x) * dx + (py - a.y) * dy) / l2;
   t = Math.max(0, Math.min(1, t));
   return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+}
+
+/* clamp v into [lo, hi] */
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+/* split `total` into `parts` positive pieces that sum back to it exactly */
+function splitRange(total, parts) {
+  if (parts <= 1) return [total];
+  const weights = Array.from({ length: parts }, () => 0.2 + Math.random());
+  const sum = weights.reduce((a, b) => a + b, 0);
+  return weights.map((w) => (w / sum) * total);
+}
+
+/* orthogonal monotone path from E to C with `turns` right-angle bends. Because it
+ * never backtracks, its length is exactly |Δx|+|Δy| — so every lane stays equal
+ * even though the bends are random. */
+function buildLane(E, C, turns) {
+  const dx = C.x - E.x,
+    dy = C.y - E.y;
+  const sx = Math.sign(dx) || 1,
+    sy = Math.sign(dy) || 1;
+  const Hx = Math.abs(dx),
+    Vy = Math.abs(dy);
+  const m = turns + 1;
+  let startH = Math.random() < 0.5;
+  let hSteps = startH ? Math.ceil(m / 2) : Math.floor(m / 2);
+  let vSteps = startH ? Math.floor(m / 2) : Math.ceil(m / 2);
+  if (hSteps === 0 || vSteps === 0) {
+    startH = !startH;
+    hSteps = startH ? Math.ceil(m / 2) : Math.floor(m / 2);
+    vSteps = startH ? Math.floor(m / 2) : Math.ceil(m / 2);
+  }
+  const hSegs = splitRange(Hx, hSteps);
+  const vSegs = splitRange(Vy, vSteps);
+  const pts = [{ x: E.x, y: E.y }];
+  let cur = { x: E.x, y: E.y };
+  let hi = 0,
+    vi = 0;
+  for (let i = 0; i < m; i++) {
+    if ((i % 2 === 0) === startH) {
+      cur.x += sx * hSegs[hi++];
+    } else {
+      cur.y += sy * vSegs[vi++];
+    }
+    pts.push({ x: cur.x, y: cur.y });
+  }
+  return pts;
 }
 
 Game.init();

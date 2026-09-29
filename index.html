@@ -48,6 +48,11 @@
           >75</span
         >
       </button>
+      <button class="tbtn" data-type="bank">
+        <span class="ti" style="background: #f0b429"></span>Bank<span class="c"
+          >60</span
+        >
+      </button>
     </div>
 
     <!-- Selected tower panel -->
@@ -64,6 +69,8 @@
     <div id="controls">
       <button id="startWave">Start Wave 1</button>
       <button id="speedBtn">1x</button>
+      <button id="autoBtn">Auto: Off</button>
+      <button id="muteBtn" title="Mute (M)">🔊</button>
     </div>
 
     <!-- Overlays -->
@@ -73,12 +80,13 @@
         <p>Build towers. Hold the line. Survive the waves.</p>
         <p class="hint">
           Pick a tower on the left, click the field to place it.<br />Right-click
-          to cancel · Keys 1-4 pick towers · Space starts wave.
+          to cancel · Keys 1-5 pick towers · Space starts wave · M mutes.
         </p>
         <button id="playBtn">Start Game</button>
       </div>
     </div>
 
+    <script src="src/sounds.js"></script>
     <script src="src/particles.js"></script>
     <script src="src/entities.js"></script>
     <script src="src/waves.js"></script>

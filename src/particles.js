@@ -70,6 +70,10 @@ const Particles = {
     this.add({ kind: "bolt", pts, color, maxLife: 0.18, age: 0 });
   },
 
+  beam(x1, y1, x2, y2, color) {
+    this.add({ kind: "beam", x1, y1, x2, y2, color, maxLife: 0.28, age: 0 });
+  },
+
   text(x, y, str, color = "#fff", size = 15) {
     this.add({
       kind: "text",
@@ -135,6 +139,24 @@ const Particles = {
         ctx.moveTo(p.pts[0].x, p.pts[0].y);
         for (let i = 1; i < p.pts.length; i++)
           ctx.lineTo(p.pts[i].x, p.pts[i].y);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else if (p.kind === "beam") {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = this.withAlpha(p.color, alpha);
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.moveTo(p.x1, p.y1);
+        ctx.lineTo(p.x2, p.y2);
+        ctx.stroke();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = this.withAlpha("#ffffff", alpha * 0.85);
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(p.x1, p.y1);
+        ctx.lineTo(p.x2, p.y2);
         ctx.stroke();
         ctx.shadowBlur = 0;
       } else if (p.kind === "text") {

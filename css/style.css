@@ -58,6 +58,9 @@ html, body {
 #startWave { background: rgba(79, 208, 255, .18); box-shadow: 0 0 20px rgba(79, 208, 255, .3); }
 #startWave:disabled { opacity: .5; cursor: default; box-shadow: none; }
 #speedBtn { min-width: 52px; }
+#autoBtn.on {
+  border-color: #7ef2d0; box-shadow: 0 0 16px rgba(126, 242, 208, .5); background: rgba(126, 242, 208, .18);
+}
 
 /* ---------- Overlays ---------- */
 .overlay {

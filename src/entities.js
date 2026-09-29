@@ -57,11 +57,45 @@ const TOWER_TYPES = {
     slowTime: 1.4,
     desc: "Bullets chill and slow enemies.",
   },
+  railgun: {
+    name: "Railgun",
+    cost: 110,
+    range: 230,
+    fireRate: 1.5,
+    damage: 52,
+    projSpeed: 0,
+    color: "#ff4d6d",
+    chain: 0,
+    splash: 0,
+    slow: 0,
+    slowTime: 0,
+    beamLen: 360,
+    desc: "Fires a beam that slices everything in a straight line.",
+  },
+  bank: {
+    name: "Bank",
+    cost: 60,
+    range: 0,
+    fireRate: 0,
+    damage: 0,
+    projSpeed: 0,
+    color: "#f0b429",
+    chain: 0,
+    splash: 0,
+    slow: 0,
+    slowTime: 0,
+    desc: "Pays out extra gold at the end of every wave.",
+  },
 };
 
-/* cost to raise a tower from its current level (1..4) */
+/* cost to raise a tower from its current level (no cap) */
 function upgradeCost(type, level) {
   return Math.round(TOWER_TYPES[type].cost * (0.7 + 0.65 * (level - 1)));
+}
+
+/* gold paid per wave by a Bank tower of the given level */
+function bankIncome(level) {
+  return 6 + level * 5;
 }
 
 /* ---------- Enemy ---------- */
@@ -177,6 +211,7 @@ class Tower {
     this.chain = c.chain;
     this.slow = c.slow;
     this.slowTime = c.slowTime;
+    this.beamLen = c.beamLen || 0;
     this.color = c.color;
     this.cooldown = 0;
     this.angle = 0;
@@ -231,6 +266,8 @@ class Tower {
   update(dt, now) {
     this.cooldown -= dt;
     if (this.firing > 0) this.firing -= dt;
+    // Bank towers are support units: they generate income and never fire.
+    if (this.type === "bank") return;
     const t = this.findTarget();
     this.target = t;
     if (t) this.angle = Math.atan2(t.y - this.y, t.x - this.x);
@@ -240,6 +277,12 @@ class Tower {
         this.fireTesla(t, now);
         this.cooldown = this.fireRate;
         this.firing = 0.12;
+      }
+    } else if (this.type === "railgun") {
+      if (t && this.cooldown <= 0) {
+        this.fireRail(t, now);
+        this.cooldown = this.fireRate;
+        this.firing = 0.14;
       }
     } else {
       if (t && this.cooldown <= 0) {
@@ -252,6 +295,7 @@ class Tower {
 
   fire(t, now) {
     Game.projectiles.push(new Projectile(this.x, this.y, t, this));
+    Sound.shoot(this.type);
     Particles.muzzle(
       this.x + Math.cos(this.angle) * 18,
       this.y + Math.sin(this.angle) * 18,
@@ -263,6 +307,7 @@ class Tower {
 
   fireTesla(t, now) {
     if (!t) return;
+    Sound.tesla();
     t.hurt(this.damage);
     Particles.bolt(this.x, this.y, t.x, t.y, this.color);
     let cur = t,
@@ -285,6 +330,38 @@ class Tower {
       cur = next;
     }
     Particles.addShake(2);
+  }
+
+  fireRail(t, now) {
+    if (!t) return;
+    Sound.rail();
+    const dx = Math.cos(this.angle),
+      dy = Math.sin(this.angle);
+    const ex = this.x + dx * this.beamLen,
+      ey = this.y + dy * this.beamLen;
+    Particles.beam(this.x, this.y, ex, ey, this.color);
+    Particles.muzzle(
+      this.x + dx * 20,
+      this.y + dy * 20,
+      this.angle,
+      this.color,
+    );
+    Particles.addShake(4);
+    // Slice every enemy that crosses the beam segment (hit once each). Placement
+    // matters: only things along this straight line in the aim direction are hit.
+    const segDX = ex - this.x,
+      segDY = ey - this.y;
+    const segLen2 = segDX * segDX + segDY * segDY;
+    for (const e of Game.enemies) {
+      if (e.dead) continue;
+      const tt = segLen2
+        ? ((e.x - this.x) * segDX + (e.y - this.y) * segDY) / segLen2
+        : 0;
+      if (tt < 0 || tt > 1.05) continue; // stay within beam length
+      const px = this.x + segDX * tt,
+        py = this.y + segDY * tt;
+      if (Math.hypot(e.x - px, e.y - py) <= e.size + 3) e.hurt(this.damage);
+    }
   }
 
   draw(ctx) {
@@ -376,6 +453,7 @@ class Projectile {
   hit(x, y, now) {
     if (this.splash > 0) {
       Particles.explosion(x, y, this.color, 20, 5);
+      Sound.explosion();
       Particles.addShake(4);
       for (const e of Game.enemies) {
         if (!e.dead && Math.hypot(e.x - x, e.y - y) <= this.splash)
@@ -384,6 +462,7 @@ class Projectile {
     } else {
       if (this.target && !this.target.dead) {
         this.target.hurt(this.damage);
+        Sound.hit(this.tower.type);
         if (this.slow > 0) {
           this.target.slowUntil = now + this.slowTime;
           this.target.slowFactor = this.slow;

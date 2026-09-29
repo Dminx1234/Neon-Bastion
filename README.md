@@ -35,8 +35,13 @@ python3 -m http.server 8080
 | Cannon | Splash/AoE shells |
 | Tesla | Lightning that chains between enemies |
 | Frost | Slows enemies down |
+| Bank | Support: pays extra gold each wave |
 
-Each tower upgrades to level 4 and can be sold for 60% refund.
+Each tower upgrades with **no level cap** (cost rises each level) and can be sold for a 60% refund. Building **Bank** towers grants extra gold at the end of every wave, scaling with their level.
+
+## Lanes
+
+One colored lane runs in from each of the four screen sides, all converging on the central bastion. Every lane is orthogonal (right-angle turns only, never diagonal) and curves into the bastion from its own side — so each side has a lane to defend. Enemies spawn from the glowing markers at each edge entry.
 
 ## Enemies
 
@@ -46,12 +51,17 @@ Grunt (basic), Runner (fast/fragile), Swarm (cheap numbers), Brute (tanky). HP s
 
 `src/particles.js` drives glow (`shadowBlur` + additive `lighter` blending), particle explosions, muzzle flashes, chain-lightning bolts, floating damage/gold text, and screen shake on impacts.
 
+## Sound
+
+`src/sounds.js` synthesizes every sound at runtime with the Web Audio API — no audio files to ship. SFX include per-tower firing (turret pew / cannon thud / frost ping / tesla zap), explosions, kills, base impacts, wave-start and wave-clear jingles, upgrade/sell/ui blips, a game-over theme, plus a soft ambient music bed. Press **M** or click the 🔊 button to mute/unmute (audio also resumes on first click per browser autoplay rules).
+
 ## Structure
 
 ```
 index.html          # canvas + HUD/overlays + script load order
 css/style.css        # neon UI
 src/particles.js     # effects system (sparks, flashes, bolts, shake, text)
+src/sounds.js        # procedural Web Audio SFX + ambient music (no audio files)
 src/entities.js      # tower config + Enemy / Tower / Projectile classes
 src/waves.js         # spawn scheduling + difficulty curve
 src/game.js          # state, input, loop, rendering, HUD
@@ -62,5 +72,5 @@ src/game.js          # state, input, loop, rendering, HUD
 - More tower/enemy types, boss waves.
 - Tower target-mode buttons (nearest / first / most-hp) and splash-upgrade paths.
 - Enemy pathing around towers (A*) so you can build mazes.
-- Sound effects + a persistent high-score / save file.
+- A persistent high-score / save file.
 - Migrate to Phaser if you want sprites, tweening, and an asset pipeline.

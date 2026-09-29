@@ -65,6 +65,11 @@ const Waves = {
   betweenWaves: true,
   active: false,
 
+  /* auto-wave mode: start the next wave automatically after a short delay */
+  autoWave: false,
+  countdown: 0,
+  AUTO_DELAY: 3,
+
   buildQueue(wave) {
     const q = [];
     for (let i = 0; i < 5 + Math.floor(wave * 1.7); i++) q.push("grunt");
@@ -92,21 +97,44 @@ const Waves = {
     this.queue = this.buildQueue(this.current);
     this.spawnTimer = 0;
     this.active = true;
+    this.countdown = 0;
     Game.setHUD();
+    Sound.waveStart();
   },
 
   update(dt) {
-    if (!this.active) return;
-    if (this.queue.length > 0) {
-      this.spawnTimer -= dt;
-      if (this.spawnTimer <= 0) {
-        const type = this.queue.shift();
-        const path = Game.paths[Math.floor(Math.random() * Game.paths.length)];
-        Game.enemies.push(new Enemy(makeEnemyConfig(type, this.current), path));
-        this.spawnTimer = this.spawnInterval;
+    if (this.active) {
+      if (this.queue.length > 0) {
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0) {
+          const type = this.queue.shift();
+          const path =
+            Game.paths[Math.floor(Math.random() * Game.paths.length)];
+          Game.enemies.push(
+            new Enemy(makeEnemyConfig(type, this.current), path.points),
+          );
+          this.spawnTimer = this.spawnInterval;
+        }
+      } else if (Game.enemies.length === 0) {
+        this.finishWave();
       }
-    } else if (Game.enemies.length === 0) {
-      this.finishWave();
+    } else if (
+      this.autoWave &&
+      Game.enemies.length === 0 &&
+      this.countdown > 0
+    ) {
+      // between-waves countdown toward the next auto-started wave
+      this.countdown -= dt;
+      const btn = document.getElementById("startWave");
+      if (btn) btn.textContent = `Next wave in ${Math.ceil(this.countdown)}…`;
+      if (this.countdown <= 0) {
+        this.startWave();
+        const b = document.getElementById("startWave");
+        if (b) {
+          b.disabled = true;
+          b.textContent = "Wave in progress…";
+        }
+      }
     }
   },
 
@@ -122,11 +150,29 @@ const Waves = {
       "#7ef2d0",
       20,
     );
+    // Bank towers pay out extra gold at the end of every wave.
+    let bankGold = 0;
+    for (const t of Game.towers)
+      if (t.type === "bank") bankGold += bankIncome(t.level);
+    if (bankGold > 0) {
+      Game.gold += bankGold;
+      Particles.text(
+        Game.base.x,
+        Game.base.y - 84,
+        "BANK +" + bankGold,
+        "#f0b429",
+        17,
+      );
+    }
     Game.setHUD();
+    // If auto-wave is on, start the next wave automatically after a short delay.
+    if (this.autoWave) this.countdown = this.AUTO_DELAY;
     const btn = document.getElementById("startWave");
     if (btn) {
       btn.disabled = false;
-      btn.textContent = "Start Wave " + (this.current + 1);
+      if (this.autoWave && this.countdown > 0)
+        btn.textContent = `Next wave in ${Math.ceil(this.countdown)}…`;
+      else btn.textContent = "Start Wave " + (this.current + 1);
     }
   },
 
